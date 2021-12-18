@@ -52,7 +52,7 @@ model.eval()
 
 # FGSM attack code
 def fgsm_attack(image, epsilon, data_grad):
-    # !! Put your code below
+    import pdb; pdb.set_trace()
     # Collect the element-wise sign of the data gradient, you can use data_grad.sign()
     sign_data_gradient = data_grad.sign()
     # Create the perturbed image by adjusting each pixel of the input image

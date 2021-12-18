@@ -52,6 +52,8 @@ model.load_state_dict(torch.load(pretrained_model, map_location='cpu'))
 # Set the model in evaluation mode. In this case this is for the Dropout layers
 model.eval()
 
+def compute_fitness(image, 
+
 # EA attack code
 def ea_attack(N, image, target_class, epsilon, rho_min, beta_min, num_iter, model, device):
     # perturbed_image = image.detach().clone() # for debugging purpose
@@ -66,15 +68,18 @@ def ea_attack(N, image, target_class, epsilon, rho_min, beta_min, num_iter, mode
     # population = torch.empty(dims, device=device).uniform_(-epsilon, epsilon)
     # population = torch.clamp(population + image, 0, 1) - image
     # if you prefer to use a list, you may consider the following
-    # population = []
-    # for n in range(N):
-    #     rand_image = torch.empty(dims, device=device).uniform_(-epsilon, epsilon)
-    #     rand_image = torch.clamp(rand_image + image, 0, 1) - image
-    #     population.append(rand_image)
+    population = []
+    for n in range(N):
+        rand_image = torch.empty(dims, device=device).uniform_(-epsilon, epsilon)
+        rand_image = torch.clamp(rand_image + image, 0, 1) - image
+        population.append(rand_image)
 
     # initialize two parameters rho=0.5 and beta=0.4
+    rho = 0.5
+    beta = 0.4
 
     # initialize num_plateaus to be 0
+    num_plateaus = 0
 
     for i in range(num_iter):
 

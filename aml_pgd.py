@@ -6,6 +6,7 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 import numpy as np
 import matplotlib.pyplot as plt
+import time
 
 epsilons = [0, .05, .1, .15, .2, .25, .3]
 alpha = 5e-3
@@ -55,6 +56,7 @@ model.eval()
 
 def test( model, device, test_loader, epsilon ):
 
+    begin_time = time.time()
     # Accuracy counter
     correct = 0
     adv_examples = []
@@ -90,32 +92,44 @@ def test( model, device, test_loader, epsilon ):
         perturbed_image = torch.zeros_like(image, requires_grad=True)
         perturbed_image.data = image.detach() + delta.detach()
 
-        for i in range(num_iter):
 
+        for i in range(num_iter):
             # one iteration of projected gradient descent
 
             # !! Put your code below
-
             # Send the perturbed image in the last iteration to model to get output
+            output = model(perturbed_image)
 
             # Calculate the loss given the new output and the target
+            loss = F.nll_loss(output, target)
 
             # Zero all existing gradients
+            model.zero_grad()
 
             # Calculate gradients of model in backward pass
+            loss.backward()
 
             # Collect gradient w.r.t. the input (perturbed_image)
+            gradx = perturbed_image.grad.data
 
             # Update delta based on the gradient
+            delta = delta+alpha*gradx
 
             # Adding clipping to maintain [-epsilon,epsilon] range for delta, you can use function torch.clamp
+            # delta = torch.clamp(delta, -epsilon, epsilon)
+            delta = delta.clamp(-epsilon, epsilon)
 
             # Adjust delta to make sure the perturbed image is in the range [0,1] You can apply torch clamp to
             # delta+image, and then update delta as the difference between the clamped image and the original image
+            # clamped_image = torch.clamp(delta+perturbed_image, 0, 1)
+            # delta = perturbed_image - clamped_image
+            delta = (delta+image).clamp(0,1) - image
 
             # update perturbed_image
+            perturbed_image.data = image.detach() + delta.detach()
 
             # Reset gradient of perturbed_image to zero, you can use x.grad.zero_()
+            perturbed_image.grad.zero_()
 
 
             # !! Put your code above
@@ -140,7 +154,8 @@ def test( model, device, test_loader, epsilon ):
 
     # Calculate final accuracy for this epsilon
     final_acc = correct/float(num_test)
-    print("Epsilon: {}\tTest Accuracy = {} / {} = {}".format(epsilon, correct, num_test, final_acc))
+    compute_time = time.time() - begin_time
+    print("Epsilon: {}\tTest Accuracy = {} / {} = {}, Time: {}, GPU: {}".format(epsilon, correct, num_test, final_acc, compute_time, use_cuda ))
 
     # Return the accuracy and an adversarial example
     return final_acc, adv_examples
@@ -148,34 +163,56 @@ def test( model, device, test_loader, epsilon ):
 accuracies = []
 examples = []
 
-# Run test for each epsilon
-for eps in epsilons:
-    acc, ex = test(model, device, test_loader, eps)
-    accuracies.append(acc)
-    examples.append(ex)
+nocuda_accuracy = "nocuda_accuracy.png"
+nocuda_images = "nocuda_images.png"
+cuda_accuracy = "cuda_accuracy.png"
+cuda_images = "cuda_images.png"
 
-plt.figure(figsize=(5,5))
-plt.plot(epsilons, accuracies, "*-")
-plt.yticks(np.arange(0, 1.1, step=0.1))
-plt.xticks(np.array(epsilons))
-plt.title("Accuracy vs Epsilon")
-plt.xlabel("Epsilon")
-plt.ylabel("Accuracy")
-plt.show()
+# Run all tests with and without gpu
+for cuda in [True, False]:
 
-# Plot several examples of adversarial samples at each epsilon
-cnt = 0
-plt.figure(figsize=(8,10))
-for i in range(len(epsilons)):
-    for j in range(len(examples[i])):
-        cnt += 1
-        plt.subplot(len(epsilons),len(examples[0]),cnt)
-        plt.xticks([], [])
-        plt.yticks([], [])
-        if j == 0:
-            plt.ylabel("Eps: {}".format(epsilons[i]), fontsize=14)
-        orig,adv,ex = examples[i][j]
-        plt.title("{} -> {}".format(orig, adv))
-        plt.imshow(ex, cmap="gray")
-plt.tight_layout()
-plt.show()
+    use_cuda = cuda
+
+    accuracies = []
+    examples = []
+
+    # Run test for each epsilon
+    for eps in epsilons:
+        acc, ex = test(model, device, test_loader, eps)
+        accuracies.append(acc)
+        examples.append(ex)
+
+    plt.figure(figsize=(5,5))
+    plt.plot(epsilons, accuracies, "*-")
+    plt.yticks(np.arange(0, 1.1, step=0.1))
+    plt.xticks(np.array(epsilons))
+    plt.xlabel("Epsilon")
+    plt.ylabel("Accuracy")
+
+    if cuda:
+        plt.title("GPU - Accuracy vs Epsilon")
+        plt.savefig(cuda_accuracy)
+    else:
+        plt.title("No GPU - Accuracy vs Epsilon")
+        plt.savefig(nocuda_accuracy)
+
+    # Plot several examples of adversarial samples at each epsilon
+    cnt = 0
+    plt.figure(figsize=(8,10))
+    for i in range(len(epsilons)):
+        for j in range(len(examples[i])):
+            cnt += 1
+            plt.subplot(len(epsilons),len(examples[0]),cnt)
+            plt.xticks([], [])
+            plt.yticks([], [])
+            if j == 0:
+                plt.ylabel("Eps: {}".format(epsilons[i]), fontsize=14)
+            orig,adv,ex = examples[i][j]
+            plt.title("{} -> {}".format(orig, adv))
+            plt.imshow(ex, cmap="gray")
+    plt.tight_layout()
+
+    if cuda:
+        plt.savefig(cuda_images)
+    else:
+        plt.savefig(nocuda_images)
