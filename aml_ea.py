@@ -52,7 +52,8 @@ model.load_state_dict(torch.load(pretrained_model, map_location='cpu'))
 # Set the model in evaluation mode. In this case this is for the Dropout layers
 model.eval()
 
-def compute_fitness(image, 
+def compute_fitness(image, target_label):
+    pass
 
 # EA attack code
 def ea_attack(N, image, target_class, epsilon, rho_min, beta_min, num_iter, model, device):
@@ -82,9 +83,11 @@ def ea_attack(N, image, target_class, epsilon, rho_min, beta_min, num_iter, mode
     num_plateaus = 0
 
     for i in range(num_iter):
-
         # For each member in the current population, compute the fitness score. Note that you will need to clamp the
         # value to a large range, e.g., [-100,1000] to avoid getting "inf"
+        for member in population:
+            compute
+
 
         # Find the elite member, which is the one with the highest fitness score
 
