@@ -52,8 +52,11 @@ model.load_state_dict(torch.load(pretrained_model, map_location='cpu'))
 # Set the model in evaluation mode. In this case this is for the Dropout layers
 model.eval()
 
-def compute_fitness(image, target_label):
-    pass
+def compute_fitness(population, image, target_label):
+    temp = model(image + population).clamp(-100, 1000)
+    fitness = temp[:, target_label]
+
+    return temp, fitness
 
 # EA attack code
 def ea_attack(N, image, target_class, epsilon, rho_min, beta_min, num_iter, model, device):
@@ -81,30 +84,40 @@ def ea_attack(N, image, target_class, epsilon, rho_min, beta_min, num_iter, mode
 
     # initialize num_plateaus to be 0
     num_plateaus = 0
+    prev_fitness = 0
 
     for i in range(num_iter):
         # For each member in the current population, compute the fitness score. Note that you will need to clamp the
         # value to a large range, e.g., [-100,1000] to avoid getting "inf"
-        for member in population:
-            compute
+        temp, fitness = compute_fitness(population, image, target_class)
 
 
         # Find the elite member, which is the one with the highest fitness score
+        elite_member = max(fitness)
 
         # Add the elite member to the new population
+        population.append(elite_member)
 
         # If the elite member can succeed in attack, terminate and return the elite member
+        if max(temp[elite_member])==target_class:
+            perturbed_image = population[elite_member] + image
+            break
 
         # If the elite member’s fitness score is no better than the last population’s elite member’s fitness score,
         # increment num_plateaus. It is recommended to use a threshold of 1e-5 to avoid numerical instability
-
+        if abs(temp[elite_member,target_class] - prev_elite_fitness) <= 1e-5:
+            num_plateaus += 1
 
         # Compute the probability each member in the population should be chosen by applying softmax to the fitness
         # scores
+        probability = nn.Softmax(dim=0)
+        P = probability(fitness)
 
         # Choose a member in the current population according to the probability, name it parent_1
+        parent_1 = max(probability)
 
         # Choose a member in the current population according to the probability, name it parent_2
+        parent_2 = max(probability.pop(parent_1))
 
         # Generate a “children” image from parent1 and parent2: For each pixel, take parent1’s corresponding pixel
         # value with probability p=fitness(parent1)/(fitness(parent1)+fitness(parent2))
@@ -133,11 +146,11 @@ def test( model, device, test_loader, epsilon ):
     counter = 0
     # Loop over all examples in test set
     for image, target in test_loader:
-    
+
         counter += 1
         print(epsilon, counter) # for debugging purpose
         if counter > num_test:
-            break        
+            break
         # Send the image and label to the device
         image, target = image.to(device), target.to(device)
 
